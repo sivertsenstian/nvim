@@ -39,8 +39,11 @@ return {
       ensure_installed = {
         -- Update this to ensure that you have the debuggers for the langs you want
         'delve',
+        'coreclr'
       },
     }
+
+
 
     -- Basic debugging keymaps, feel free to change to your liking!
     vim.keymap.set('n', '<F5>', dap.continue, { desc = 'Debug: Start/Continue' })
@@ -83,5 +86,23 @@ return {
 
     -- Install golang specific config
     require('dap-go').setup()
+
+    -- Install c# specific config
+    dap.adapters.coreclr = {
+      type = 'executable',
+      command = 'C:/Users/StianSivertsen/scoop/shims/netcoredbg',
+      args = { '--interpreter=vscode' }
+    }
+
+    dap.configurations.cs = {
+      {
+        type = "coreclr",
+        name = "launch - netcoredbg",
+        request = "launch",
+        program = function()
+          return vim.fn.input('Path to dll', vim.fn.getcwd() .. '/bin/Debug/', 'file')
+        end,
+      },
+    }
   end,
 }

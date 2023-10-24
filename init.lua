@@ -26,21 +26,114 @@ require('lazy').setup({
   -- Git related plugins
   'tpope/vim-fugitive',
   'tpope/vim-rhubarb',
+  {
+    'sindrets/diffview.nvim',
+    opts = {}
+  },
+  {
+    'akinsho/git-conflict.nvim',
+    opts = {}
+  },
+  {
+    'lewis6991/gitsigns.nvim',
+    opts = {
+      signs                        = {
+        add          = { hl = 'GitSignsAdd', text = '▎', numhl = 'GitSignsAddNr', linehl = 'GitSignsAddLn' },
+        change       = { hl = 'GitSignsChange', text = '▎', numhl = 'GitSignsChangeNr', linehl = 'GitSignsChangeLn' },
+        delete       = { hl = 'GitSignsDelete', text = '_', numhl = 'GitSignsDeleteNr', linehl = 'GitSignsDeleteLn' },
+        topdelete    = { hl = 'GitSignsDelete', text = '‾', numhl = 'GitSignsDeleteNr', linehl = 'GitSignsDeleteLn' },
+        changedelete = { hl = 'GitSignsChange', text = '~', numhl = 'GitSignsChangeNr', linehl = 'GitSignsChangeLn' },
+        untracked    = { hl = 'GitSignsAdd', text = '┆', numhl = 'GitSignsAddNr', linehl = 'GitSignsAddLn' },
+      },
+      signcolumn                   = true,  -- Toggle with `:Gitsigns toggle_signs`
+      numhl                        = false, -- Toggle with `:Gitsigns toggle_numhl`
+      linehl                       = false, -- Toggle with `:Gitsigns toggle_linehl`
+      word_diff                    = false, -- Toggle with `:Gitsigns toggle_word_diff`
+      watch_gitdir                 = {
+        interval = 700,
+        follow_files = true
+      },
+      attach_to_untracked          = true,
+      current_line_blame           = true, -- Toggle with `:Gitsigns toggle_current_line_blame`
+      current_line_blame_opts      = {
+        virt_text = true,
+        virt_text_pos = 'eol', -- 'eol' | 'overlay' | 'right_align'
+        delay = 700,
+        ignore_whitespace = false,
+      },
+      current_line_blame_formatter = '<author>, <author_time:%Y-%m-%d> - <summary>',
+      sign_priority                = 6,
+      update_debounce              = 100,
+      status_formatter             = nil, -- Use default
+      max_file_length              = 40000,
+      preview_config               = {
+        -- Options passed to nvim_open_win
+        border = 'rounded',
+        style = 'minimal',
+        relative = 'cursor',
+        row = 0,
+        col = 1
+      },
+      yadm                         = {
+        enable = false
+      },
+      on_attach                    = function(bufnr)
+        local gs = package.loaded.gitsigns
+
+        local function map(mode, l, r, opts)
+          opts = opts or {}
+          opts.buffer = bufnr
+          vim.keymap.set(mode, l, r, opts)
+        end
+
+        -- ╭──────────────────────────────────────────────────────────╮
+        -- │ Keymappings                                              │
+        -- ╰──────────────────────────────────────────────────────────╯
+
+        -- Navigation
+        map('n', ']c', function()
+          if vim.wo.diff then return ']c' end
+          vim.schedule(function() gs.next_hunk() end)
+          return '<Ignore>'
+        end, { expr = true })
+
+        map('n', '[c', function()
+          if vim.wo.diff then return '[c' end
+          vim.schedule(function() gs.prev_hunk() end)
+          return '<Ignore>'
+        end, { expr = true })
+
+        -- Actions
+        map({ 'n', 'v' }, '<leader>ghs', gs.stage_hunk)
+        map({ 'n', 'v' }, '<leader>ghr', gs.reset_hunk)
+        map('n', '<leader>ghS', gs.stage_buffer)
+        map('n', '<leader>ghu', gs.undo_stage_hunk)
+        map('n', '<leader>ghR', gs.reset_buffer)
+        map('n', '<leader>ghp', gs.preview_hunk)
+        map('n', '<leader>gm', function() gs.blame_line { full = true } end)
+        map('n', '<leader>ghd', gs.diffthis)
+        map('n', '<leader>ght', gs.toggle_deleted)
+
+        -- Text object
+        map({ 'o', 'x' }, 'ih', ':<C-U>Gitsigns select_hunk<CR>')
+      end
+    }
+  },
 
   -- Move windows
   'wesQ3/vim-windowswap',
+
+  -- Scale
+  {
+    "tenxsoydev/size-matters.nvim",
+    opts = {}
+  },
 
   -- Surround
   {
     "kylechui/nvim-surround",
     version = "*", -- Use for stability; omit to use `main` branch for the latest features
     event = "VeryLazy",
-    opts = {}
-  },
-
-  -- Projectile
-  {
-    'Shougo/denite.nvim',
     opts = {}
   },
 
@@ -68,7 +161,15 @@ require('lazy').setup({
   -- Smooth scroll
   {
     'declancm/cinnamon.nvim',
-    opts = {}
+    opts = {
+      default_keymaps = false,  -- Enable default keymaps.
+      extra_keymaps = false,    -- Enable extra keymaps.
+      extended_keymaps = false, -- Enable extended keymaps.
+      centered = true,          -- Keep cursor centered in window when using window scrolling.
+      disable = false,          -- Disable the plugin.
+      scroll_limit = 150,       -- Max number of lines moved before scrolling is skipped.
+      hide_cursor = true,
+    }
   },
 
   {
@@ -104,44 +205,6 @@ require('lazy').setup({
 
   -- Useful plugin to show you pending keybinds.
   { 'folke/which-key.nvim',  opts = {} },
-  {
-    -- Adds git related signs to the gutter, as well as utilities for managing changes
-    'lewis6991/gitsigns.nvim',
-    opts = {
-      -- See `:help gitsigns.txt`
-      signs = {
-        add = { text = '+' },
-        change = { text = '~' },
-        delete = { text = '_' },
-        topdelete = { text = '‾' },
-        changedelete = { text = '~' },
-      },
-      on_attach = function(bufnr)
-        vim.keymap.set('n', '<leader>hp', require('gitsigns').preview_hunk, { buffer = bufnr, desc = 'Preview git hunk' })
-
-        -- don't override the built-in and fugitive keymaps
-        local gs = package.loaded.gitsigns
-        vim.keymap.set({ 'n', 'v' }, ']c', function()
-          if vim.wo.diff then
-            return ']c'
-          end
-          vim.schedule(function()
-            gs.next_hunk()
-          end)
-          return '<Ignore>'
-        end, { expr = true, buffer = bufnr, desc = 'Jump to next hunk' })
-        vim.keymap.set({ 'n', 'v' }, '[c', function()
-          if vim.wo.diff then
-            return '[c'
-          end
-          vim.schedule(function()
-            gs.prev_hunk()
-          end)
-          return '<Ignore>'
-        end, { expr = true, buffer = bufnr, desc = 'Jump to previous hunk' })
-      end,
-    },
-  },
 
   -- Start Page
   {
@@ -163,11 +226,57 @@ require('lazy').setup({
     end
   },
   {
+    'shaunsingh/solarized.nvim',
+  },
+  {
+    'shaunsingh/moonlight.nvim',
+  },
+  {
+    "ellisonleao/gruvbox.nvim",
+  },
+  { "EdenEast/nightfox.nvim" },
+  {
     "folke/tokyonight.nvim",
     lazy = false,
     priority = 1000,
     config = function()
       vim.cmd.colorscheme 'tokyonight'
+    end,
+    opts = {
+      italic = false,
+      styles = {
+        comments = "NONE",
+        keywords = "NONE",
+        functions = "NONE",
+        variables = "NONE",
+        sidebars = "dark",
+        floats = "dark"
+      }
+    }
+  },
+
+  -- Format
+  {
+    'mhartington/formatter.nvim',
+    config = function()
+      require("formatter").setup({
+        filetype = {
+          lua = {
+            require("formatter.filetypes.lua").stylua
+          },
+          typescript = {
+            require("formatter.filetypes.typescript").prettier
+          },
+          cs = {
+            require("formatter.filetypes.cs").dotnetformat
+          }
+        },
+        ["*"] = {
+          -- "formatter.filetypes.any" defines default configurations for any
+          -- filetype
+          require("formatter.filetypes.any").remove_trailing_whitespace
+        }
+      })
     end
   },
 
@@ -216,6 +325,7 @@ require('lazy').setup({
     },
     config = function()
       require("noice").setup({
+        messages = { enabled = false },
         lsp = {
           -- override markdown rendering so that **cmp** and other plugins use **Treesitter**
           override = {
@@ -223,6 +333,12 @@ require('lazy').setup({
             ["vim.lsp.util.stylize_markdown"] = true,
             ["cmp.entry.get_documentation"] = true,
           },
+        },
+        progress = {
+          enabled = false,
+        },
+        hover = {
+          enabled = false,
         },
         -- you can enable a preset for easier configuration
         presets = {
@@ -294,7 +410,9 @@ require('lazy').setup({
 vim.o.hlsearch = false
 -- Make line numbers default and set column width to 80
 vim.wo.number = true
-vim.opt.colorcolumn = '80'
+vim.opt.colorcolumn = '120'
+vim.o.nowrap = true
+
 -- Enable mouse mode
 vim.o.mouse = 'a'
 -- Sync clipboard between OS and Neovim.
@@ -316,6 +434,37 @@ vim.o.completeopt = 'menuone,noselect'
 
 -- NOTE: You should make sure your terminal supports this
 vim.o.termguicolors = true
+
+-- Cinnamon scroll
+---- Half-window movements:
+vim.keymap.set({ 'n', 'x', 'i' }, '<C-u>', "<Cmd>lua Scroll('<C-u>', 1, 1)<CR>zz")
+vim.keymap.set({ 'n', 'x', 'i' }, '<C-d>', "<Cmd>lua Scroll('<C-d>', 1, 1)<CR>zz")
+
+-- Page movements:
+vim.keymap.set('n', '<PageUp>', "<Cmd>lua Scroll('<C-b>', 1, 1)<CR>")
+vim.keymap.set('n', '<PageDown>', "<Cmd>lua Scroll('<C-f>', 1, 1)<CR>")
+
+-- Paragraph movements:
+vim.keymap.set({ 'n', 'x' }, '{', "<Cmd>lua Scroll('{', 0)<CR>")
+vim.keymap.set({ 'n', 'x' }, '}', "<Cmd>lua Scroll('}', 0)<CR>")
+
+-- Previous/next search result:
+vim.keymap.set('n', 'n', "<Cmd>lua Scroll('n')<CR>")
+vim.keymap.set('n', 'N', "<Cmd>lua Scroll('N')<CR>")
+vim.keymap.set('n', '*', "<Cmd>lua Scroll('*')<CR>")
+vim.keymap.set('n', '#', "<Cmd>lua Scroll('#')<CR>")
+vim.keymap.set('n', 'g*', "<Cmd>lua Scroll('g*')<CR>")
+vim.keymap.set('n', 'g#', "<Cmd>lua Scroll('g#')<CR>")
+
+-- Window scrolling:
+vim.keymap.set('n', 'zz', "<Cmd>lua Scroll('zz', 0, 1)<CR>")
+vim.keymap.set('n', 'zt', "<Cmd>lua Scroll('zt', 0, 1)<CR>")
+vim.keymap.set('n', 'zb', "<Cmd>lua Scroll('zb', 0, 1)<CR>")
+vim.keymap.set('n', 'z.', "<Cmd>lua Scroll('z.', 0, 1)<CR>")
+vim.keymap.set('n', 'z<CR>', "<Cmd>lua Scroll('zt^', 0, 1)<CR>")
+vim.keymap.set('n', 'z-', "<Cmd>lua Scroll('z-', 0, 1)<CR>")
+vim.keymap.set('n', 'z^', "<Cmd>lua Scroll('z^', 0, 1)<CR>")
+vim.keymap.set('n', 'z+', "<Cmd>lua Scroll('z+', 0, 1)<CR>")
 
 -- [[ Basic Keymaps ]]
 local keymap = vim.keymap.set
@@ -367,6 +516,8 @@ keymap("n", "<leader>ps", require('telescope.builtin').git_files, { desc = "tree
 keymap("n", "<leader>ww", "<C-w>w", { desc = "other window" })
 keymap("n", "<leader>wv", "<cmd>vsplit<CR>", { desc = "split right" })
 keymap("n", "<leader>wh", "<cmd>hsplit<CR>", { desc = "split down" })
+keymap("n", "<leader>wo", "<C-w><C-o>", { desc = "set current as only window" })
+keymap("n", "<leader>wq", ":bdelete<CR>", { desc = "close window" })
 
 -- Quit
 keymap("n", "<leader>qq", "<cmd>qa<CR>", { desc = "quit" })
@@ -405,7 +556,7 @@ keymap('n', '<leader><space>', require('telescope.builtin').oldfiles, { desc = '
 keymap('n', '<leader>,', require('telescope.builtin').buffers, { desc = '[,] Find existing buffers' })
 keymap('n', '<leader>/', function()
   -- You can pass additional configuration to telescope to change theme, layout, etc.
-  require('telescope.builtin').current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
+  require('telescope.builtin').current_buffer_fuzzy_find(require('telescope.themes').get_ivy {
     winblend = 10,
     previewer = false,
   })
@@ -425,7 +576,11 @@ keymap('n', '<leader>sr', require('telescope.builtin').resume, { desc = 'search 
 vim.defer_fn(function()
   require('nvim-treesitter.configs').setup {
     -- Add languages to be installed here that you want installed for treesitter
-    ensure_installed = { 'c', 'cpp', 'go', 'lua', 'python', 'rust', 'tsx', 'javascript', 'typescript', 'vimdoc', 'vim',
+    ensure_installed = { 'c_sharp', 'c', 'cpp', 'go', 'lua', 'python', 'rust', 'tsx', 'javascript', 'typescript',
+      "html",
+      "css",
+      'vimdoc',
+      'vim',
       'bash' },
 
     -- Autoinstall languages that are not installed. Defaults to false (but you can change for yourself!)
@@ -521,7 +676,7 @@ local on_attach = function(_, bufnr)
 
   -- See `:help K` for why this keymap
   nmap('K', vim.lsp.buf.hover, 'hover documentation')
-  nmap('<C-k>', vim.lsp.buf.signature_help, 'signature documentation')
+  nmap('<C-i>', vim.lsp.buf.signature_help, 'signature documentation')
 
   -- Lesser used LSP functionality
   nmap('gD', vim.lsp.buf.declaration, 'goto declaration')
@@ -561,11 +716,18 @@ require('mason-lspconfig').setup()
 --  define the property 'filetypes' to the map in question.
 local servers = {
   -- clangd = {},
-  -- gopls = {},
+
+  gopls = {},
+  --
   -- pyright = {},
-  -- rust_analyzer = {},
-  -- tsserver = {},
-  -- html = { filetypes = { 'html', 'twig', 'hbs'} },
+
+  rust_analyzer = {},
+
+  tsserver = {},
+
+  html = { filetypes = { 'html', 'twig', 'hbs' } },
+
+  omnisharp = {},
 
   lua_ls = {
     Lua = {
